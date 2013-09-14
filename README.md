@@ -7,6 +7,9 @@ Most libraries are developed against the PIC16F690, although they should
 work with most 8-bit pics. A main.asm and config.ini file is included to demo 
 the given library.
 
+For more documentation, see the library source code files.
+
+
 
 sensor-SHT15
 ------------

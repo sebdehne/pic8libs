@@ -17,59 +17,78 @@
 
 
 
-	udata
+	udata_shr
 d1							res 1
 d2							res 1
 d3							res 1
 temp						res 1
 loop_cnt					res 1
 loop_cnt2					res 1
-data_buffer					res 3
-
+SHT15_databuffer			res 3
+	global	SHT15_databuffer
 
 	code
 
+;
+; Library for the SHT-15 sensor. 
+;
+; NOTE: It is recommended to run a watchdog timer 
+;       which can reset the microcontroller for the situation
+;       where it is waiting for input from the sensor but doesn`t 
+;       get any. The library has currently no own timeout handling.
+;
+; All delay/timing code (_delay_* methods) are for 8Mhz and need to be adjusted
+; when running at different speed
+
+
+; call to setup the module
+; sensor is powered off
 SHT15_Init
 	global	SHT15_Init
-
 	banksel	TRISC
-	bcf		TRISC, 0
-	bcf		TRISC, 1
-	bcf		TRISC, 2
-
+	bcf		TRISC, 0 ; PWR port
+	bcf		TRISC, 1 ; CLK port
+	call	data_read
 	call	SHT15_power_off
-
 	return
 
 SHT15_power_on
 	global	SHT15_power_on
+	banksel	PORTC
 	bsf		SHT15_PWR
-	call	set_idle
 	call	_delay_20ms; wait_for_startup
 	return
+
 SHT15_power_off
 	global	SHT15_power_off
+	banksel	PORTC
+	call	sck_low
 	bcf		SHT15_PWR
-	bcf		SHT15_SCK
-	bcf		SHT15_DATA
 	return
+
 SHT15_get_temp
 	global SHT15_get_temp
 	movlw	b'00000011' ; cmd for temperature
 	movwf	temp
 	call	SHT15_ReadRegister
 	return
+
 SHT15_get_humidity
 	global	SHT15_get_humidity
 	movlw	b'00000101' ; cmd for humidity
 	movwf	temp
 	call	SHT15_ReadRegister
 	return
+
 SHT15_BatteryCheck
 	global	SHT15_BatteryCheck
 	return
 
-; sends the command in temp and stores the response in data_buffer
+; =========================================
+; below this line, all internal methods
+; =========================================
+
+; sends the command in temp and stores the response in SHT15_databuffer
 ; sets STATUS, Z to 1 if error
 ; sets STATUS, Z to 0 if success
 SHT15_ReadRegister
@@ -80,18 +99,17 @@ SHT15_ReadRegister
 	goto	SHT15_ReadRegister_done ; abort here since cmd was not OK
 
 	; wait for measurement done 	
-	call	configure_for_read
 	call	_delay_20ms
 	call	_delay_20ms
 	; wait for DATA line to be pulled low by sensor
 SHT15_ReadRegister_wait
 	call	_delay_5us
-	btfsc	SHT15_DATA
+	call	data_read
+	btfsc	STATUS, Z
 	goto	SHT15_ReadRegister_wait ; data line not low yet, wait more
 	
 	; read data from sensor
 	call	read_data
-	call	set_idle
 
 	; TODO: verify CRC
 
@@ -99,29 +117,55 @@ SHT15_ReadRegister_wait
 SHT15_ReadRegister_done
 	return
 
-send_start
-	call  	configure_for_write
+data_send_low
+	banksel	TRISC
+	bcf		TRISC, 2 ; output pin
 	banksel	PORTC
-	call	_delay_5us
-	bsf		SHT15_SCK
-	call	_delay_5us
-	call	_delay_5us
 	bcf		SHT15_DATA
-	call	_delay_5us
-	call	_delay_5us
-	bcf		SHT15_SCK
-	call	_delay_5us
-	call	_delay_5us
+	return
+data_send_high
+	banksel	TRISC
+	bsf		TRISC, 2 ; input pin, pull-up will do the work
+	return
+data_read
+	banksel	TRISC
+	bsf		TRISC, 2 ; input pin
+	banksel	PORTC
+	bcf		STATUS, Z
+	btfsc	SHT15_DATA
+	bsf		STATUS, Z
+	return
+sck_high
+	banksel	PORTC
 	bsf		SHT15_SCK
-	call	_delay_5us
-	call	_delay_5us
-	bsf		SHT15_DATA
-	call	_delay_5us
-	call	_delay_5us
+	return
+sck_low
+	banksel	PORTC
 	bcf		SHT15_SCK
+	return
+
+
+send_start
+	call	_delay_5us
+	call	sck_high
 	call	_delay_5us
 	call	_delay_5us
-	bcf		SHT15_DATA
+	call	data_send_low
+	call	_delay_5us
+	call	_delay_5us
+	call	sck_low
+	call	_delay_5us
+	call	_delay_5us
+	call	sck_high
+	call	_delay_5us
+	call	_delay_5us
+	call	data_send_high
+	call	_delay_5us
+	call	_delay_5us
+	call	sck_low
+	call	_delay_5us
+	call	_delay_5us
+	call	data_send_low
 	call	_delay_5us
 	call	_delay_5us
 	call	_delay_5us
@@ -135,10 +179,10 @@ send_start
 read_data
 	movlw	.3 ; 2 data bytes + 1 crc byte
 	movwf	loop_cnt
-	movlw	data_buffer
+	movlw	SHT15_databuffer
 	movwf	FSR
 	bcf		STATUS, IRP
-	btfsc	data_buffer, 0
+	btfsc	SHT15_databuffer, 0
 	bsf		STATUS, IRP
 read_data_byte
 	movlw	.8
@@ -148,38 +192,39 @@ read_data_byte_bit
 	; wait A
 	call	_delay_5us
 	; raise clock
-	bsf		SHT15_SCK
+	call	sck_high
 	; wait B
 	call	_delay_5us
 	; read DATA
+	call	data_read
 	bsf		INDF, 0
-	btfss	SHT15_DATA
+	btfss	STATUS, Z
 	bcf		INDF, 0
+
 	; wait C	
 	call	_delay_5us
 	; clear clock
-	bcf		SHT15_SCK
+	call	sck_low
 	; wait D
 	call	_delay_5us
 	; more bits to read?
 	decfsz	loop_cnt2, F
 	goto	read_data_byte_bit
 	; send ACK
-	call	configure_for_write
-	bcf		SHT15_DATA
+	call	data_send_low
 	; wait A
 	call	_delay_5us
 	; raise clock
-	bsf		SHT15_SCK
+	call	sck_high
 	; wait B
 	call	_delay_5us
 	; wait C
 	call	_delay_5us
 	; clear clock
-	bcf		SHT15_SCK
+	call	sck_low
 	; wait D
 	call	_delay_5us
-	call	configure_for_read
+	call	data_read ; release data line
 	; more bytes to read?
 	incf	FSR, F
 	decfsz	loop_cnt, F
@@ -201,20 +246,30 @@ send_command
 send_command_loop
 	; read the next bit
 	rlf		temp, F
+
 	; configure DATA line now
-	bsf		SHT15_DATA
 	btfss	STATUS, C
-	bcf		SHT15_DATA
+	goto	send_command_loop_low
+	goto	send_command_loop_high
+
+send_command_loop_high
+	call	data_send_high
+	goto	send_command_loop_cnt
+send_command_loop_low
+	call	data_send_low
+	goto	send_command_loop_cnt
+send_command_loop_cnt
+
 	; wait A
 	call	_delay_5us
 	; rais clock
-	bsf		SHT15_SCK
+	call	sck_high
 	; wait B
 	call	_delay_5us
 	; wait C
 	call	_delay_5us
 	; clear clock
-	bcf		SHT15_SCK
+	call	sck_low
 	; wait D
 	call	_delay_5us
 	; loop for more bits
@@ -222,21 +277,21 @@ send_command_loop
 	goto	send_command_loop
 
 	; read ACK/NACK
-	call	configure_for_read
 	; wait A for slave to set DATA line
 	call	_delay_5us
 	; rais clock
-	bsf		SHT15_SCK
+	call	sck_high
 	; wait B
 	call	_delay_5us
 	; read DATA (ACK/NACK) now and store bit in temp0
+	call	data_read
 	bsf		temp, 0
-	btfss	SHT15_DATA
+	btfss	STATUS, Z
 	bcf		temp, 0
 	; wait C
 	call	_delay_5us
 	; clear clock
-	bcf		SHT15_SCK
+	call	sck_low
 	; wait D
 	call	_delay_5us
 
@@ -247,25 +302,6 @@ send_command_loop
 
 	return
 
-configure_for_write
-	banksel	TRISC
-	bcf		TRISC, 2
-	banksel	PORTC
-	return
-
-configure_for_read
-	banksel	TRISC
-	bsf		TRISC, 2
-	banksel	PORTC
-	return
-
-set_idle
-	; set to idle state
-	call	configure_for_write
-	banksel	PORTC
-	bcf		SHT15_SCK
-	bsf		SHT15_DATA
-	return
 
 _delay_5us
 			;6 cycles

@@ -6,16 +6,18 @@
 	__CONFIG       _CP_OFF & _CPD_OFF & _WDT_OFF & _BOR_OFF & _PWRTE_ON & _INTRC_OSC_NOCLKOUT  & _MCLRE_OFF & _FCMEN_OFF & _IESO_OFF
 	
 	
-	udata
+	udata_shr
 d1				res	1
 d2				res 1
 d3				res	1
 
 
 	; imported from the sht15 module
+	extern	SHT15_databuffer	; 3 byte memory for the values read from the sensor
 	extern	SHT15_Init			; method
 	extern	SHT15_get_temp		; method
-	
+	extern	SHT15_power_on		; method
+	extern	SHT15_power_off		; method
 
 
 Reset		CODE	0x0
@@ -92,39 +94,44 @@ _init
 	; init the rf_protocol_tx.asm module
 	call	SHT15_Init
 
-	call	blink_short
-	call	blink_short
-	call	blink_short
-	call	blink_short
-	call	blink_short
-	call	blink_short
-	call	_delay_1000ms
+	call	SHT15_power_on ; power up the sensor
 
-	; init done
-	goto	_main
+	call	blink_short
+	call	blink_short
+	call	blink_short
+	call	blink_short
 
 _main
-	call	blink
-	call	SHT15_get_temp
-	CLRWDT
+	call	_delay_1000ms
 
+	call	SHT15_get_temp ; read the temperature
+	call	blink_short
+
+;	call	SHT15_power_off ; power off
+
+	CLRWDT	; reset watchdog
 	goto	_main
 
-blink
-	bsf	PORTB, 6
-	call	_delay_1000ms
-	bcf	PORTB, 6
-	call	_delay_1000ms
-	return
 
 blink_short
+	banksel	PORTB
 	bsf	PORTB, 6
 	call	_delay_20ms
 	call	_delay_20ms
 	call	_delay_20ms
 	call	_delay_20ms
 	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
 	bcf	PORTB, 6
+	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
+	call	_delay_20ms
 	call	_delay_20ms
 	call	_delay_20ms
 	call	_delay_20ms
@@ -134,12 +141,12 @@ blink_short
 
 
 _delay_1000ms
-			;3999994 cycles
-	movlw	0x23
+			;1999996 cycles
+	movlw	0x11
 	movwf	d1
-	movlw	0xB9
+	movlw	0x5D
 	movwf	d2
-	movlw	0x09
+	movlw	0x05
 	movwf	d3
 _delay_1000ms_0
 	decfsz	d1, f
@@ -148,9 +155,6 @@ _delay_1000ms_0
 	goto	$+2
 	decfsz	d3, f
 	goto	_delay_1000ms_0
-
-			;2 cycles
-	goto	$+1
 
 			;4 cycles (including call)
 	return
