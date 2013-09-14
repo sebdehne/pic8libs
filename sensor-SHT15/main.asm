@@ -94,8 +94,6 @@ _init
 	; init the rf_protocol_tx.asm module
 	call	SHT15_Init
 
-	call	SHT15_power_on ; power up the sensor
-
 	call	blink_short
 	call	blink_short
 	call	blink_short
@@ -104,11 +102,11 @@ _init
 _main
 	call	_delay_1000ms
 
+	call	SHT15_power_on ; power up the sensor
 	call	SHT15_get_temp ; read the temperature
+	call	SHT15_power_off ; power off
+
 	call	blink_short
-
-;	call	SHT15_power_off ; power off
-
 	CLRWDT	; reset watchdog
 	goto	_main
 

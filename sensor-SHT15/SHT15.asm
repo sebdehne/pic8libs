@@ -61,8 +61,8 @@ SHT15_power_on
 
 SHT15_power_off
 	global	SHT15_power_off
-	banksel	PORTC
 	call	sck_low
+	banksel	PORTC
 	bcf		SHT15_PWR
 	return
 
