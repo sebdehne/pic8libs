@@ -22,6 +22,7 @@ d1							res 1
 d2							res 1
 d3							res 1
 temp						res 1
+bytes_to_read				res 1
 loop_cnt					res 1
 loop_cnt2					res 1
 SHT15_databuffer			res 3
@@ -52,6 +53,7 @@ SHT15_Init
 	call	SHT15_power_off
 	return
 
+; powers on the sensor
 SHT15_power_on
 	global	SHT15_power_on
 	banksel	PORTC
@@ -59,6 +61,7 @@ SHT15_power_on
 	call	_delay_20ms; wait_for_startup
 	return
 
+; powers off the sensor
 SHT15_power_off
 	global	SHT15_power_off
 	call	sck_low
@@ -66,22 +69,55 @@ SHT15_power_off
 	bcf		SHT15_PWR
 	return
 
+; reads the raw temperature data from the sensor
+; and stores that in the SHT15_databuffer register
+; 3 bytes: 2 bytes for temp-data and 1 for crc8
 SHT15_get_temp
 	global SHT15_get_temp
 	movlw	b'00000011' ; cmd for temperature
 	movwf	temp
+	movlw	.3 ; 2 data bytes + 1 crc byte
+	movwf	bytes_to_read
 	call	SHT15_ReadRegister
 	return
 
+; reads the raw humidity data from the sensor
+; and stores that in the SHT15_databuffer register
+; 3 bytes: 2 bytes for temp-data and 1 for crc8
 SHT15_get_humidity
 	global	SHT15_get_humidity
 	movlw	b'00000101' ; cmd for humidity
 	movwf	temp
+	movlw	.3 ; 2 data bytes + 1 crc byte
+	movwf	bytes_to_read
 	call	SHT15_ReadRegister
 	return
 
+; sends the reset command
+SHT15_reset
+	global	SHT15_reset
+	movlw	b'00011110' ; cmd for reset
+	call	send_command
+	call	_delay_20ms
+	return
+
+; low-battery voltage detection, can only be 
+; used after a measurement
+; Uses and modifies the SHT15_databuffer register
+; 
+; returns:
+; sets the STATUS, Z to 0 if the VDD > 2.47
+; sets the STATUS, Z to 1 if the VDD < 2.47
 SHT15_BatteryCheck
 	global	SHT15_BatteryCheck
+	movlw	b'00000111' ; cmd for status register
+	movwf	temp
+	movlw	.2 ; 1 status byte + 1 crc byte
+	movwf	bytes_to_read
+	call	SHT15_ReadRegister
+	bcf		STATUS, Z
+	btfsc	SHT15_databuffer, 6
+	bsf		STATUS, Z
 	return
 
 ; =========================================
@@ -99,8 +135,9 @@ SHT15_ReadRegister
 	goto	SHT15_ReadRegister_done ; abort here since cmd was not OK
 
 	; wait for measurement done 	
-	call	_delay_20ms
-	call	_delay_20ms
+	call	_delay_5us
+	call	_delay_5us
+	call	_delay_5us
 	; wait for DATA line to be pulled low by sensor
 SHT15_ReadRegister_wait
 	call	_delay_5us
@@ -176,9 +213,8 @@ send_start
 	call	_delay_5us
 	return
 
+; reads number of bytes specified in bytes_to_read
 read_data
-	movlw	.3 ; 2 data bytes + 1 crc byte
-	movwf	loop_cnt
 	movlw	SHT15_databuffer
 	movwf	FSR
 	bcf		STATUS, IRP
@@ -227,7 +263,7 @@ read_data_byte_bit
 	call	data_read ; release data line
 	; more bytes to read?
 	incf	FSR, F
-	decfsz	loop_cnt, F
+	decfsz	bytes_to_read, F
 	goto	read_data_byte
 
 read_data_done

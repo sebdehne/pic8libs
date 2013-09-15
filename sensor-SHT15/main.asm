@@ -16,6 +16,9 @@ d3				res	1
 	extern	SHT15_databuffer	; 3 byte memory for the values read from the sensor
 	extern	SHT15_Init			; method
 	extern	SHT15_get_temp		; method
+	extern	SHT15_get_humidity	; method
+	extern	SHT15_BatteryCheck	; method
+	extern	SHT15_reset			; method
 	extern	SHT15_power_on		; method
 	extern	SHT15_power_off		; method
 
@@ -94,19 +97,22 @@ _init
 	; init the rf_protocol_tx.asm module
 	call	SHT15_Init
 
-	call	blink_short
-	call	blink_short
-	call	blink_short
-	call	blink_short
-
 _main
+	call	_delay_1000ms
+	call	_delay_1000ms
 	call	_delay_1000ms
 
 	call	SHT15_power_on ; power up the sensor
+
 	call	SHT15_get_temp ; read the temperature
+	call	_delay_1000ms
+	call	SHT15_get_humidity ; read the temperature
+	call	_delay_1000ms
+	call	SHT15_BatteryCheck
+	call	_delay_1000ms
+
 	call	SHT15_power_off ; power off
 
-	call	blink_short
 	CLRWDT	; reset watchdog
 	goto	_main
 
