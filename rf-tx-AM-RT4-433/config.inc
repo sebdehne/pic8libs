@@ -15,14 +15,14 @@
 ; RA4 - <empty>
 ; RA5 - <empty>
 ; 
-; RB4 - Light-resistor-adc
-; RB5 - Light-resistor-power
-; RB6 - LED
+; RB4 - <empty>
+; RB5 - <empty>
+; RB6 - <empty>
 ; RB7 - <empty>
 ; 
-; RC0 - SHT-15-PWR
-; RC1 - SHT-15-SCK
-; RC2 - SHT-15-DATA
+; RC0 - <empty>
+; RC1 - <empty>
+; RC2 - <empty>
 ; RC3 - RF-PWR
 ; RC4 - RF-DATA
 ; RC5 - <empty>

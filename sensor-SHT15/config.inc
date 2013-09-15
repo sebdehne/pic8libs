@@ -8,8 +8,8 @@
 ;**********************************************
 ; Port config:
 ; 
-; RA0 - SCK
-; RA1 - DATA
+; RA0 - <empty>
+; RA1 - <empty>
 ; RA2 - <empty>
 ; RA3 - <empty>
 ; RA4 - <empty>
@@ -20,9 +20,9 @@
 ; RB6 - <empty>
 ; RB7 - <empty>
 ; 
-; RC0 - <empty>
-; RC1 - <empty>
-; RC2 - <empty>
+; RC0 - SHT15_PWR
+; RC1 - SHT15_SCK
+; RC2 - SHT15_DATA
 ; RC3 - <empty>
 ; RC4 - <empty>
 ; RC5 - <empty>

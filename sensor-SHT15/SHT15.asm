@@ -339,6 +339,7 @@ send_command_loop_cnt
 	return
 
 
+	if CLOCKSPEED == .8000000
 _delay_5us
 			;6 cycles
 	goto	$+1
@@ -347,7 +348,18 @@ _delay_5us
 
 			;4 cycles (including call)
 	return
+	else
+	if CLOCKSPEED == .4000000
+_delay_5us
+			;1 cycle
+	nop
 
+			;4 cycles (including call)
+	return
+	endif
+	endif
+
+	if CLOCKSPEED == .8000000
 _delay_20ms
 			;39993 cycles
 	movlw	0x3E
@@ -366,5 +378,27 @@ _delay_20ms_0
 
 			;4 cycles (including call)
 	return
+	else
+	if CLOCKSPEED == .4000000
+_delay_20ms
+			;19993 cycles
+	movlw	0x9E
+	movwf	d1
+	movlw	0x10
+	movwf	d2
+_delay_20ms_0
+	decfsz	d1, f
+	goto	$+2
+	decfsz	d2, f
+	goto	_delay_20ms_0
+
+			;3 cycles
+	goto	$+1
+	nop
+
+			;4 cycles (including call)
+	return
+	endif
+	endif
 
 	end
