@@ -18,5 +18,9 @@ Library which talks to the SHT15 temperature sensor. The lib offers:
 - read temperature and humidity (using factory resolution)
 - low voltage warning (useful when powered by battery)
 
-
+sensor-ChipCap2
+---------------
+Library which talks to the ChipCap2 sensor over I2C. This lib offers:
+- power up/down of the sensor
+- read temperature and humidity
 
